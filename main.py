@@ -1,12 +1,28 @@
 import pydivert
 import dns.resolver
-from concurrent.futures import ThreadPoolExecutor
+import datetime as dt
 
-# Создаем фильтр (например, для HTTP трафика)
+
+def get_func_time(func):
+    """Декоратор для измерения времени выполнения функции"""
+    def wrapper(*args, **kwargs):
+        start = dt.datetime.now()
+        res = func(*args, **kwargs)
+        end = dt.datetime.now()
+        time = end - start
+        print(f"Время выполнения {(time.seconds * 10 ** 6) + time.microseconds} микросекунд")
+        return res
+
+    return wrapper
+
+
+# Создаем фильтр, в данном случае для всех tcp запросов через https
 filter = "tcp.DstPort == 443"
 
 
-def get_hostname(ip_address):
+@get_func_time
+def get_hostname(ip_address: str) -> str or None:
+    """Функция для получения имени хоста по ip адрессу"""
     try:
         # Выполняем обратный DNS-запрос
         result = dns.resolver.resolve_address(ip_address)
@@ -18,15 +34,22 @@ def get_hostname(ip_address):
         return None
 
 
-# Запускаем дивертер
-with pydivert.WinDivert(filter) as w:
-    print("Запуск дивертора...")
+def firewall():
+    """Основная функция для работы всей программы"""
+    # Запускаем WinDivert
+    with pydivert.WinDivert(filter) as w:
+        print("Запуск...")
+        for packet in w:
+            # print(f"Пакет: {packet}")
 
-    for packet in w:
-        # if b"Host:" in packet.payload:
-        # print(f"Пакет: {packet.dst_addr}")
-        print(get_hostname(packet.dst_addr))
-        # Пример изменения пакета (если нужно)
-        # packet.payload = ...
+            # host = socket.gethostbyaddr((packet.dst_addr))
+            host = get_hostname(packet.dst_addr)
+            print(packet.dst_addr, host)
+            # if host and ".ru" in host:
+            #    continue
 
-        w.send(packet)  # Отправляем пакет обратно
+            w.send(packet)  # Отправляем пакет обратно
+
+
+if __name__ == "__main__":
+    firewall()
