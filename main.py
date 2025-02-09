@@ -2,6 +2,7 @@ import pydivert
 import dns.resolver
 import datetime as dt
 
+TO_BLOCK = ["youtube.com"]
 
 def get_func_time(func):
     """Декоратор для измерения времени выполнения функции"""
@@ -45,8 +46,9 @@ def firewall():
             # host = socket.gethostbyaddr((packet.dst_addr))
             host = get_hostname(packet.dst_addr)
             print(packet.dst_addr, host)
-            # if host and ".ru" in host:
-            #    continue
+            if host in TO_BLOCK:
+                print(1)
+                continue
 
             w.send(packet)  # Отправляем пакет обратно
 
